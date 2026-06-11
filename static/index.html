@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InvoiceIntel — Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f1f0ec;
+    --border: rgba(0,0,0,0.09);
+    --border-md: rgba(0,0,0,0.15);
+    --text: #1a1a18;
+    --text-2: #5f5e5a;
+    --text-3: #9e9c97;
+    --red: #A32D2D; --red-bg: #FCEBEB;
+    --amber: #854F0B; --amber-bg: #FAEEDA;
+    --green: #3B6D11; --green-bg: #EAF3DE;
+    --pink: #993556; --pink-bg: #FBEAF0;
+    --blue: #185FA5; --blue-bg: #E6F1FB;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Upload / processing screens ── */
+  #upload-screen, #processing-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem;
+  }
+  .upload-card {
+    background: var(--surface); border: 0.5px solid var(--border); border-radius: 16px;
+    padding: 3rem 2.5rem; text-align: center; max-width: 520px; width: 100%;
+  }
+  .upload-icon { font-size: 48px; color: var(--text-3); margin-bottom: 1.5rem; display: block; }
+  .upload-card h1 { font-size: 22px; font-weight: 600; margin-bottom: 0.5rem; }
+  .upload-card p { font-size: 14px; color: var(--text-2); margin-bottom: 2rem; line-height: 1.6; }
+  .drop-zone {
+    border: 1.5px dashed var(--border-md); border-radius: var(--radius); padding: 2rem 1.5rem;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 1rem;
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--blue); background: var(--blue-bg); }
+  .drop-zone i { font-size: 28px; color: var(--text-3); display: block; margin-bottom: 0.75rem; }
+  .drop-zone span { font-size: 13px; color: var(--text-2); }
+  .drop-zone strong { color: var(--blue); }
+  #file-input { display: none; }
+  .or-divider { font-size: 12px; color: var(--text-3); margin: 1rem 0; }
+  .demo-btn {
+    font-size: 13px; color: var(--blue); background: none; border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-sm); padding: 8px 20px; cursor: pointer; transition: background 0.15s;
+  }
+  .demo-btn:hover { background: var(--blue-bg); }
+  .error-msg { font-size: 13px; color: var(--red); margin-top: 1rem; display: none; text-align: left; background: var(--red-bg); border-radius: var(--radius-sm); padding: 10px 12px; }
+
+  /* file list */
+  #file-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1rem; text-align: left; max-height: 220px; overflow-y: auto; }
+  .file-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--surface2); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12.5px;
+  }
+  .file-item .fname { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+  .file-item .fname span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-item .fsize { color: var(--text-3); flex-shrink: 0; }
+  .file-item .fremove { color: var(--text-3); cursor: pointer; flex-shrink: 0; font-size: 16px; line-height: 1; background: none; border: none; }
+  .file-item .fremove:hover { color: var(--red); }
+  .analyze-btn {
+    width: 100%; font-size: 14px; font-weight: 600; color: #fff; background: var(--blue);
+    border: none; border-radius: var(--radius-sm); padding: 12px; cursor: pointer; margin-bottom: 0.5rem;
+    transition: opacity 0.15s;
+  }
+  .analyze-btn:hover { opacity: 0.9; }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .skipped-note { font-size: 11px; color: var(--text-3); margin-top: 8px; text-align: left; }
+
+  /* processing */
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue);
+    border-radius: 50%; margin: 0 auto 1.5rem; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOut { to { transform: translateX(400px); opacity: 0; } }
+  .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin: 1rem 0 0.75rem; }
+  .progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.3s ease; width: 2%; }
+  #progress-text { font-size: 13px; color: var(--text); margin-bottom: 0; font-weight: 500; }
+  .hint { font-size: 12px; color: var(--text-3); margin-top: 1rem; margin-bottom: 0; }
+
+  /* ── Dashboard ── */
+  #dashboard { display: none; }
+  .topbar {
+    background: var(--surface); border-bottom: 0.5px solid var(--border);
+    padding: 0 2rem; height: 56px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .logo { font-size: 15px; font-weight: 600; }
+  .logo span { color: var(--blue); }
+  .file-badge {
+    font-size: 11px; background: var(--surface2); color: var(--text-2);
+    padding: 3px 10px; border-radius: 20px; border: 0.5px solid var(--border);
+  }
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .reset-btn, .download-btn {
+    font-size: 12px; color: var(--text-2); background: none; border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-sm); padding: 6px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background 0.15s;
+  }
+  .reset-btn:hover, .download-btn:hover { background: var(--surface2); }
+  .download-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  .skipped-banner {
+    font-size: 12px; color: var(--amber); background: var(--amber-bg); border-radius: var(--radius-sm);
+    padding: 8px 12px; margin-bottom: 1rem; display: none;
+  }
+
+  /* metrics */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  .metric { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+  .metric-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .metric-value { font-size: 28px; font-weight: 600; }
+  .metric-value.red { color: var(--red); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-value.blue { color: var(--blue); }
+
+  /* charts row */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 12px; margin-bottom: 1.5rem; }
+  .chart-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+  .chart-title { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .chart-inner { position: relative; height: 160px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+
+  /* vendor bar chart */
+  .vendor-bars { display: flex; flex-direction: column; gap: 8px; }
+  .vbar-row { display: flex; align-items: center; gap: 8px; }
+  .vbar-name { font-size: 11px; color: var(--text-2); min-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .vbar-track { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .vbar-fill { height: 100%; background: #378ADD; border-radius: 3px; }
+  .vbar-val { font-size: 11px; color: var(--text-2); min-width: 40px; }
+
+  /* controls */
+  .controls { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+  .search-wrap { flex: 1; min-width: 200px; position: relative; }
+  .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--text-3); pointer-events: none; }
+  .search-input {
+    width: 100%; padding: 8px 12px 8px 34px; font-size: 13px;
+    border: 0.5px solid var(--border-md); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text); outline: none;
+  }
+  .search-input:focus { border-color: var(--blue); }
+  .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-size: 12px; padding: 5px 12px; border-radius: 20px;
+    border: 0.5px solid var(--border-md); background: var(--surface);
+    color: var(--text-2); cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .pill:hover { background: var(--surface2); }
+  .pill.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .sort-select {
+    font-size: 12px; padding: 5px 10px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-md); background: var(--surface); color: var(--text-2); outline: none; cursor: pointer;
+  }
+
+  /* invoice list */
+  .inv-list { display: flex; flex-direction: column; gap: 6px; }
+  .inv-card {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .inv-card:hover { border-color: var(--border-md); }
+  .inv-card.open { border-color: #378ADD; }
+  .inv-card.high { border-left: 3px solid var(--red); }
+  .inv-card.medium { border-left: 3px solid #EF9F27; }
+  .inv-card.low { border-left: 3px solid var(--green); }
+  .inv-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .inv-id { font-size: 13px; font-weight: 600; min-width: 88px; }
+  .inv-vendor { font-size: 13px; color: var(--text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 100px; }
+  .inv-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+  .inv-amount { font-size: 13px; font-weight: 600; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .b-high { background: var(--red-bg); color: var(--red); }
+  .b-medium { background: var(--amber-bg); color: var(--amber); }
+  .b-low { background: var(--green-bg); color: var(--green); }
+  .b-overdue { background: var(--red-bg); color: var(--red); }
+  .b-paid { background: var(--green-bg); color: var(--green); }
+  .b-unpaid { background: var(--amber-bg); color: var(--amber); }
+  .b-partial { background: var(--pink-bg); color: var(--pink); }
+  .b-disputed { background: var(--pink-bg); color: var(--pink); }
+  .b-unknown { background: var(--surface2); color: var(--text-3); }
+  .b-flag { background: var(--red-bg); color: var(--red); }
+  .b-neutral { background: var(--surface2); color: var(--text-2); }
+  .b-source { background: var(--blue-bg); color: var(--blue); }
+
+  .inv-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* expanded detail */
+  .inv-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--border); }
+  .inv-card.open .inv-detail { display: block; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 16px; margin-bottom: 14px; }
+  .detail-item { }
+  .detail-lbl { font-size: 11px; color: var(--text-3); margin-bottom: 2px; }
+  .detail-val { font-size: 13px; color: var(--text); }
+  .section-hd { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin: 10px 0 6px; }
+  .anomaly-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .anomaly-list li { font-size: 12px; color: var(--red); display: flex; align-items: flex-start; gap: 6px; }
+  .anomaly-list li::before { content: "!"; background: var(--red-bg); color: var(--red); border-radius: 50%; width: 15px; height: 15px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .action-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .action-list li { font-size: 12px; color: var(--text); display: flex; align-items: flex-start; gap: 6px; }
+  .action-list li::before { content: "→"; color: var(--blue); flex-shrink: 0; }
+  .note-box { font-size: 11px; color: var(--text-2); background: var(--surface2); border-radius: var(--radius-sm); padding: 7px 10px; margin-top: 10px; }
+  .conf-bar { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+  .conf-fill { height: 100%; border-radius: 2px; }
+
+  .results-count { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
+  .empty-state { text-align: center; padding: 3rem; color: var(--text-3); font-size: 14px; }
+
+  @media (max-width: 768px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr 1fr; }
+    .topbar { padding: 0 1rem; flex-wrap: wrap; height: auto; padding-top: 8px; padding-bottom: 8px; gap: 8px; }
+    .main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Upload Screen -->
+<div id="upload-screen">
+  <div class="upload-card">
+    <i class="ti ti-file-invoice upload-icon"></i>
+    <h1>InvoiceIntel</h1>
+    <p>Upload invoices, statements, vendor emails, or spreadsheets — in any format. Our AI agent will extract every invoice, flag anomalies, and build your dashboard automatically.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <i class="ti ti-upload" aria-hidden="true"></i>
+      <span><strong>Click to upload</strong> or drag & drop<br>PDF, images, CSV, Excel, Word, email (.eml), JSON, text</span>
+    </div>
+    <input type="file" id="file-input" multiple accept=".pdf,.csv,.xlsx,.xls,.docx,.txt,.md,.markdown,.eml,.json,.png,.jpg,.jpeg,.webp,.gif,.bmp">
+    <div id="file-list"></div>
+    <button class="analyze-btn" id="analyze-btn" style="display:none" onclick="startAnalysis()">Analyze documents</button>
+    <div class="or-divider">or</div>
+    <button class="demo-btn" onclick="loadDemo()"><i class="ti ti-player-play" style="font-size:13px;vertical-align:-1px"></i> Load demo data</button>
+    <button class="demo-btn" id="go-back-btn" style="display:none" onclick="goBackToPreviousData()"><i class="ti ti-arrow-left" style="font-size:13px;vertical-align:-1px"></i> View previous results</button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+</div>
+
+<!-- Processing Screen -->
+<div id="processing-screen" style="display:none">
+  <div class="upload-card">
+    <div class="spinner"></div>
+    <h1>Analyzing your documents…</h1>
+    <p id="progress-text" style="margin-bottom:0">Starting analysis…</p>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <p class="hint">This typically takes a few seconds per document. Feel free to keep this tab open.</p>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="logo">Invoice<span>Intel</span></span>
+      <span class="file-badge" id="file-badge">—</span>
+    </div>
+    <div class="topbar-right">
+      <button class="download-btn" onclick="downloadPDF()" id="download-pdf-btn" style="display:none">
+        <i class="ti ti-file-pdf" style="font-size:14px" aria-hidden="true"></i> Download PDF
+      </button>
+      <button class="reset-btn" onclick="resetDashboard()">
+        <i class="ti ti-upload" style="font-size:14px" aria-hidden="true"></i> Upload new files
+      </button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="skipped-banner" id="skipped-banner"></div>
+
+    <!-- Metrics -->
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Total invoices</div>
+        <div class="metric-value blue" id="m-total">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">High priority</div>
+        <div class="metric-value red" id="m-high">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Flagged for review</div>
+        <div class="metric-value amber" id="m-flagged">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Total amount</div>
+        <div class="metric-value" id="m-amount">—</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Status</div>
+        <div class="chart-inner"><canvas id="statusChart" role="img" aria-label="Invoice status breakdown"></canvas></div>
+        <div class="legend" id="status-legend"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Priority</div>
+        <div class="chart-inner"><canvas id="priorityChart" role="img" aria-label="Invoice priority breakdown"></canvas></div>
+        <div class="legend" id="priority-legend"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top vendors by amount</div>
+        <div class="vendor-bars" id="vendor-bars"></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="search-wrap">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input class="search-input" id="search" type="text" placeholder="Search by invoice ID, vendor, or source...">
+      </div>
+      <div class="filter-pills" id="filter-pills"></div>
+      <select class="sort-select" id="sort-select">
+        <option value="priority">Sort: Priority</option>
+        <option value="amount-desc">Amount: High → Low</option>
+        <option value="amount-asc">Amount: Low → High</option>
+        <option value="due">Due date</option>
+        <option value="status">Status</option>
+      </select>
+    </div>
+
+    <div class="results-count" id="results-count"></div>
+    <div class="inv-list" id="inv-list"></div>
+  </div>
+</div>
+
+<script>
+let allInvoices = [];
+let summaryData = {};
+let fullReport = {};
+let previousReport = {};
+let activeFilter = 'all';
+let statusChartInst, priorityChartInst;
+let selectedFiles = [];
+let pollTimer = null;
+let currentJobId = null;
+
+// ── File selection ──
+const fileInput = document.getElementById('file-input');
+const dz = document.getElementById('drop-zone');
+
+fileInput.addEventListener('change', e => addFiles(e.target.files));
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  addFiles(e.dataTransfer.files);
+});
+
+function addFiles(fileListObj) {
+  for (const f of fileListObj) {
+    if (!selectedFiles.some(sf => sf.name === f.name && sf.size === f.size)) {
+      selectedFiles.push(f);
+    }
+  }
+  renderFileList();
+}
+
+function removeFile(idx) {
+  selectedFiles.splice(idx, 1);
+  renderFileList();
+}
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFileList() {
+  const container = document.getElementById('file-list');
+  const btn = document.getElementById('analyze-btn');
+  if (!selectedFiles.length) {
+    container.innerHTML = '';
+    btn.style.display = 'none';
+    return;
+  }
+  container.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-item">
+      <div class="fname"><i class="ti ti-file" aria-hidden="true"></i><span>${f.name}</span></div>
+      <div class="fname"><span class="fsize">${fmtSize(f.size)}</span><button class="fremove" onclick="event.stopPropagation(); removeFile(${i})" aria-label="Remove file">&times;</button></div>
+    </div>
+  `).join('');
+  btn.style.display = 'block';
+  btn.textContent = `Analyze ${selectedFiles.length} document${selectedFiles.length !== 1 ? 's' : ''}`;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 6000);
+}
+
+// ── Submit & poll ──
+async function startAnalysis() {
+  if (!selectedFiles.length) return;
+
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('processing-screen').style.display = 'flex';
+  document.getElementById('progress-text').textContent = 'Uploading documents…';
+  document.getElementById('progress-fill').style.width = '2%';
+
+  try {
+    const res = await fetch(`/api/analyze`, { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Upload failed (${res.status})`);
+    }
+    const data = await res.json();
+    pollStatus(data.job_id, data.files_skipped || []);
+  } catch (err) {
+    backToUpload(err.message || 'Something went wrong while uploading your files.');
+  }
+}
+
+function pollStatus(jobId, skippedFiles) {
+  currentJobId = jobId;
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/status/${jobId}`);
+      if (!res.ok) throw new Error('Lost connection to the analysis job.');
+      const job = await res.json();
+
+      if (job.total_files > 0) {
+        const pct = Math.min(100, Math.round((job.current_index / job.total_files) * 100));
+        document.getElementById('progress-fill').style.width = Math.max(pct, 2) + '%';
+      }
+      if (job.current_file) {
+        document.getElementById('progress-text').textContent =
+          `Processing ${job.current_index}/${job.total_files}: ${job.current_file}`;
+      }
+
+      if (job.status === 'done') {
+        clearInterval(pollTimer);
+        document.getElementById('progress-fill').style.width = '100%';
+        const data = job.result;
+        if (skippedFiles && skippedFiles.length) {
+          data._skipped_files = skippedFiles;
+        }
+        document.getElementById('file-badge').textContent =
+          `${selectedFiles.length} document${selectedFiles.length !== 1 ? 's' : ''} analyzed`;
+        loadDashboard(data);
+      } else if (job.status === 'error') {
+        clearInterval(pollTimer);
+        backToUpload(job.error || 'Analysis failed.');
+      }
+    } catch (err) {
+      clearInterval(pollTimer);
+      backToUpload(err.message || 'Lost connection while processing.');
+    }
+  }, 1500);
+}
+
+function backToUpload(message) {
+  document.getElementById('processing-screen').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  if (message) showError(message);
+}
+
+function resetDashboard() {
+  if (pollTimer) clearInterval(pollTimer);
+  
+  // Save current report before clearing
+  if (fullReport && Object.keys(fullReport).length > 0) {
+    previousReport = JSON.parse(JSON.stringify(fullReport));
+  }
+  
+  // Clear only file selection and UI state, NOT the data
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('processing-screen').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('download-pdf-btn').style.display = 'none';
+  
+  fileInput.value = '';
+  selectedFiles = [];
+  renderFileList();
+  currentJobId = null;
+  
+  // Show go back button if there's previous data
+  const goBackBtn = document.getElementById('go-back-btn');
+  if (previousReport && Object.keys(previousReport).length > 0) {
+    goBackBtn.style.display = 'inline-block';
+  } else {
+    goBackBtn.style.display = 'none';
+  }
+  
+  // Show notification that data is saved
+  showNotification('Previous analysis saved. Upload new files to analyze.');
+}
+
+function goBackToPreviousData() {
+  if (previousReport && Object.keys(previousReport).length > 0) {
+    fullReport = JSON.parse(JSON.stringify(previousReport));
+    allInvoices = fullReport.invoices || [];
+    summaryData = fullReport.summary || {};
+    activeFilter = 'all';
+    
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('download-pdf-btn').style.display = 'inline-flex';
+    document.getElementById('file-badge').textContent = 'Viewing previous analysis';
+    
+    renderMetrics();
+    renderCharts();
+    renderVendorBars();
+    renderFilterPills();
+    renderList();
+    document.getElementById('search').value = '';
+    
+    showNotification('Loaded previous analysis results');
+  }
+}
+
+function showNotification(msg) {
+  const notif = document.createElement('div');
+  notif.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--green);
+    color: white;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+  `;
+  notif.textContent = msg;
+  document.body.appendChild(notif);
+  
+  setTimeout(() => {
+    notif.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notif.remove(), 300);
+  }, 3000);
+}
+
+async function downloadPDF() {
+  if (!currentJobId) {
+    alert('No job ID available. Please upload files first.');
+    return;
+  }
+  
+  const btn = document.getElementById('download-pdf-btn');
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader" style="font-size:14px;animation:spin 1s linear infinite" aria-hidden="true"></i> Generating PDF...';
+  
+  try {
+    const endpoint = currentJobId === 'demo' ? '/api/demo/pdf' : `/api/pdf/${currentJobId}`;
+    const response = await fetch(endpoint);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const filename = currentJobId === 'demo' ? 'invoice_report_demo.pdf' : `invoice_report_${currentJobId}.pdf`;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.parentElement.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to generate PDF: ' + (err.message || 'Unknown error'));
+    console.error('PDF download error:', err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+// ── Demo data ──
+function loadDemo() {
+  fetch('/api/demo')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      document.getElementById('file-badge').textContent = 'Demo data';
+      currentJobId = 'demo';
+      loadDashboard(data);
+    })
+    .catch(() => showError('Could not load demo data right now.'));
+}
+
+// ── Dashboard init ──
+function loadDashboard(data) {
+  fullReport = data;
+  allInvoices = data.invoices || [];
+  summaryData = data.summary || {};
+  activeFilter = 'all';
+
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('processing-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('download-pdf-btn').style.display = 'inline-flex';
+
+  const skippedBanner = document.getElementById('skipped-banner');
+  if (data._skipped_files && data._skipped_files.length) {
+    skippedBanner.style.display = 'block';
+    skippedBanner.innerHTML = `<i class="ti ti-alert-triangle" style="vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>${data._skipped_files.length} file(s) were skipped (unsupported type): ${data._skipped_files.join(', ')}`;
+  } else {
+    skippedBanner.style.display = 'none';
+  }
+
+  renderMetrics();
+  renderCharts();
+  renderVendorBars();
+  renderFilterPills();
+  renderList();
+  document.getElementById('search').value = '';
+  document.getElementById('search').addEventListener('input', renderList);
+  document.getElementById('sort-select').addEventListener('change', renderList);
+}
+
+function fmt(n, currency) {
+  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '₹';
+  if (n >= 10000000 && (!currency || currency === 'INR')) return symbol + (n/10000000).toFixed(1) + 'Cr';
+  if (n >= 100000 && (!currency || currency === 'INR'))   return symbol + (n/100000).toFixed(1) + 'L';
+  if (n >= 1000)     return symbol + (n/1000).toFixed(1) + 'K';
+  return symbol + Math.round(n).toLocaleString();
+}
+
+// ── Metrics ──
+function renderMetrics() {
+  const total = allInvoices.length;
+  const high  = allInvoices.filter(i => i.priority === 'High').length;
+  const flagged = allInvoices.filter(i => i.flagged_for_review).length;
+  const amount = allInvoices.reduce((s, i) => s + (i.amount || 0), 0);
+  const dominantCurrency = mostCommonCurrency();
+  document.getElementById('m-total').textContent   = total;
+  document.getElementById('m-high').textContent    = high;
+  document.getElementById('m-flagged').textContent = flagged;
+  document.getElementById('m-amount').textContent  = fmt(amount, dominantCurrency);
+}
+
+function mostCommonCurrency() {
+  const counts = {};
+  allInvoices.forEach(i => { const c = i.currency || 'INR'; counts[c] = (counts[c]||0) + 1; });
+  let best = 'INR', bestCount = -1;
+  for (const [c, n] of Object.entries(counts)) { if (n > bestCount) { best = c; bestCount = n; } }
+  return best;
+}
+
+// ── Charts ──
+function renderCharts() {
+  const statusCounts = {};
+  const priorityCounts = { High: 0, Medium: 0, Low: 0 };
+  allInvoices.forEach(i => {
+    const status = i.status || 'Unknown';
+    statusCounts[status] = (statusCounts[status] || 0) + 1;
+    if(i.priority in priorityCounts) priorityCounts[i.priority]++;
+  });
+
+  const statusColors = { Unpaid:'#EF9F27', Overdue:'#E24B4A', Paid:'#639922', Partial:'#D4537E', Disputed:'#D4537E', Unknown:'#888780' };
+  const sLabels = Object.keys(statusCounts);
+  const sData   = sLabels.map(l => statusCounts[l]);
+  const sColors = sLabels.map(l => statusColors[l] || '#888780');
+
+  if(statusChartInst) statusChartInst.destroy();
+  if (sData.length) {
+    statusChartInst = new Chart(document.getElementById('statusChart'), {
+      type: 'doughnut',
+      data: { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors, borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
+    });
+  }
+  document.getElementById('status-legend').innerHTML = sLabels.map((l,i) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${sColors[i]}"></span>${l} ${sData[i]}</span>`
+  ).join('');
+
+  if(priorityChartInst) priorityChartInst.destroy();
+  const pColors = ['#E24B4A','#EF9F27','#639922'];
+  priorityChartInst = new Chart(document.getElementById('priorityChart'), {
+    type: 'doughnut',
+    data: { labels: ['High','Medium','Low'], datasets: [{ data: [priorityCounts.High, priorityCounts.Medium, priorityCounts.Low], backgroundColor: pColors, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
+  });
+  document.getElementById('priority-legend').innerHTML = ['High','Medium','Low'].map((l,i) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${pColors[i]}"></span>${l} ${priorityCounts[l]}</span>`
+  ).join('');
+}
+
+// ── Vendor bars ──
+function renderVendorBars() {
+  const vendors = {};
+  allInvoices.forEach(i => { vendors[i.vendor_name || 'Unknown'] = (vendors[i.vendor_name || 'Unknown'] || 0) + (i.amount || 0); });
+  const sorted = Object.entries(vendors).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const max = sorted[0]?.[1] || 1;
+  const dominantCurrency = mostCommonCurrency();
+  if (!sorted.length) {
+    document.getElementById('vendor-bars').innerHTML = '<div class="empty-state" style="padding:1rem">No vendor data found.</div>';
+    return;
+  }
+  document.getElementById('vendor-bars').innerHTML = sorted.map(([name, amt]) => `
+    <div class="vbar-row">
+      <div class="vbar-name" title="${name}">${name}</div>
+      <div class="vbar-track"><div class="vbar-fill" style="width:${Math.round(amt/max*100)}%"></div></div>
+      <div class="vbar-val">${fmt(amt, dominantCurrency)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Filter pills ──
+function renderFilterPills() {
+  const filters = [
+    { key: 'all',     label: `All (${allInvoices.length})` },
+    { key: 'High',    label: `High priority (${allInvoices.filter(i=>i.priority==='High').length})` },
+    { key: 'flagged', label: `Flagged (${allInvoices.filter(i=>i.flagged_for_review).length})` },
+    { key: 'Overdue', label: `Overdue (${allInvoices.filter(i=>i.status==='Overdue').length})` },
+    { key: 'Unpaid',  label: `Unpaid (${allInvoices.filter(i=>i.status==='Unpaid').length})` },
+    { key: 'Paid',    label: `Paid (${allInvoices.filter(i=>i.status==='Paid').length})` },
+  ];
+  document.getElementById('filter-pills').innerHTML = filters.map(f =>
+    `<button class="pill ${f.key===activeFilter?'active':''}" onclick="setFilter('${f.key}')">${f.label}</button>`
+  ).join('');
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderFilterPills();
+  renderList();
+}
+
+// ── Invoice list ──
+const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+const statusOrder = { Overdue: 0, Disputed: 1, Partial: 1, Unpaid: 2, Unknown: 3, Paid: 4 };
+
+function renderList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const sort = document.getElementById('sort-select').value;
+
+  let list = allInvoices.filter(i => {
+    const matchQ = !q
+      || (i.invoice_id||'').toLowerCase().includes(q)
+      || (i.vendor_name||'').toLowerCase().includes(q)
+      || (i.source_document||'').toLowerCase().includes(q);
+    const matchF = activeFilter==='all' ? true
+      : activeFilter==='flagged' ? i.flagged_for_review
+      : activeFilter==='High' ? i.priority==='High'
+      : i.status === activeFilter;
+    return matchQ && matchF;
+  });
+
+  list = [...list].sort((a,b) => {
+    if(sort==='priority')    return (priorityOrder[a.priority]??2) - (priorityOrder[b.priority]??2);
+    if(sort==='amount-desc') return (b.amount||0) - (a.amount||0);
+    if(sort==='amount-asc')  return (a.amount||0) - (b.amount||0);
+    if(sort==='due')         return (a.due_date||'zzz').localeCompare(b.due_date||'zzz');
+    if(sort==='status')      return (statusOrder[a.status]??3) - (statusOrder[b.status]??3);
+    return 0;
+  });
+
+  document.getElementById('results-count').textContent = `${list.length} invoice${list.length!==1?'s':''}`;
+
+  if(!list.length) {
+    document.getElementById('inv-list').innerHTML = '<div class="empty-state"><i class="ti ti-search" style="font-size:32px;display:block;margin-bottom:8px"></i>No invoices match this filter.</div>';
+    return;
+  }
+
+  document.getElementById('inv-list').innerHTML = list.map(inv => {
+    const confColor = inv.confidence_score >= 90 ? '#639922' : inv.confidence_score >= 70 ? '#EF9F27' : '#E24B4A';
+    const srcShort  = (inv.source_document||'').replace(/\.[^.]+$/,'');
+    const currency = inv.currency || 'INR';
+
+    return `
+    <div class="inv-card ${(inv.priority||'').toLowerCase()}" onclick="this.classList.toggle('open')">
+      <div class="inv-top">
+        <span class="inv-id">${inv.invoice_id}</span>
+        <span class="inv-vendor">${inv.vendor_name}</span>
+        <div class="inv-right">
+          <span class="badge b-source">${srcShort}</span>
+          <span class="badge b-${(inv.status||'unknown').toLowerCase()}">${inv.status||'Unknown'}</span>
+          <span class="badge b-${(inv.priority||'low').toLowerCase()}">${inv.priority||'Low'}</span>
+          ${inv.flagged_for_review ? `<span class="badge b-flag"><i class="ti ti-flag" style="font-size:10px;vertical-align:-1px" aria-hidden="true"></i></span>` : ''}
+          <span class="inv-amount">${fmt(inv.amount||0, currency)}</span>
+        </div>
+      </div>
+      ${(inv.anomalies||[]).length ? `<div class="inv-tags">${inv.anomalies.map(a=>`<span class="badge b-neutral">${a}</span>`).join('')}</div>` : ''}
+
+      <div class="inv-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-lbl">Invoice date</div><div class="detail-val">${inv.invoice_date||'—'}</div></div>
+          <div class="detail-item"><div class="detail-lbl">Due date</div><div class="detail-val">${inv.due_date||'—'}</div></div>
+          <div class="detail-item"><div class="detail-lbl">Currency</div><div class="detail-val">${inv.currency||'INR'}</div></div>
+          <div class="detail-item">
+            <div class="detail-lbl">Confidence: ${inv.confidence_score||0}%</div>
+            <div class="conf-bar"><div class="conf-fill" style="width:${inv.confidence_score||0}%;background:${confColor}"></div></div>
+          </div>
+          <div class="detail-item"><div class="detail-lbl">Source</div><div class="detail-val">${inv.source_document||'—'}</div></div>
+        </div>
+        ${(inv.anomalies||[]).length ? `<div class="section-hd">Anomalies</div><ul class="anomaly-list">${inv.anomalies.map(a=>`<li>${a}</li>`).join('')}</ul>` : ''}
+        ${(inv.action_items||[]).length ? `<div class="section-hd">Action items</div><ul class="action-list">${inv.action_items.map(a=>`<li>${a}</li>`).join('')}</ul>` : ''}
+        ${inv.uncertainty_note ? `<div class="note-box"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-2px;margin-right:4px" aria-hidden="true"></i>${inv.uncertainty_note}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+groq
+pydantic
+pandas
+python-dotenv
+PyMuPDF
+Pillow
+openpyxl
+python-docx
+fastapi
+uvicorn[standard]
+python-multipart
+reportlab
+weasyprint
